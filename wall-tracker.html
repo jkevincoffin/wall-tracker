@@ -1,0 +1,295 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>Wall Tracker</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Sans:wght@300;400;500;600&display=swap');
+  :root {
+    --bg:#0f0f0f;--surface:#1a1a1a;--surface2:#222;
+    --cleared:#2ecc71;--blocked:#e74c3c;--accent:#f39c12;
+    --text:#f0f0f0;--muted:#888;
+  }
+  *{box-sizing:border-box;margin:0;padding:0;}
+  body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;min-height:100vh;display:flex;flex-direction:column;align-items:center;padding:24px 16px 80px;}
+  h1{font-family:'Bebas Neue',sans-serif;font-size:clamp(2.5rem,10vw,4rem);letter-spacing:.08em;color:var(--accent);margin-bottom:4px;text-align:center;}
+  .subtitle{color:var(--muted);font-size:.8rem;letter-spacing:.12em;text-transform:uppercase;margin-bottom:24px;text-align:center;}
+  .month-bar{width:100%;max-width:400px;background:var(--surface);border-radius:10px;padding:12px 16px;margin-bottom:20px;display:flex;justify-content:space-between;align-items:center;border:1px solid #2a2a2a;}
+  .month-name{font-family:'Bebas Neue',sans-serif;font-size:1.1rem;letter-spacing:.08em;color:var(--accent);}
+  .goal-status{font-size:.78rem;color:var(--muted);}
+  .goal-status.on-track{color:var(--cleared);}
+  .goal-status.off-track{color:var(--blocked);}
+  .score-section{display:flex;flex-direction:column;align-items:center;margin-bottom:24px;}
+  .ring-wrap{position:relative;width:170px;height:170px;margin-bottom:10px;}
+  .ring-wrap svg{transform:rotate(-90deg);}
+  .ring-bg{fill:none;stroke:var(--surface2);stroke-width:14;}
+  .ring-fill{fill:none;stroke-width:14;stroke-linecap:round;transition:stroke-dashoffset .6s cubic-bezier(.4,0,.2,1),stroke .4s;}
+  .ring-center{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);text-align:center;}
+  .ring-pct{font-family:'Bebas Neue',sans-serif;font-size:2.6rem;line-height:1;}
+  .ring-label{font-size:.65rem;color:var(--muted);letter-spacing:.1em;text-transform:uppercase;}
+  .goal-line{font-size:.8rem;color:var(--muted);display:flex;align-items:center;gap:8px;}
+  .goal-line span{color:var(--accent);font-weight:600;}
+  .goal-edit-btn{background:none;border:1px solid #333;border-radius:6px;color:var(--muted);font-size:.7rem;padding:3px 8px;cursor:pointer;font-family:'DM Sans',sans-serif;transition:all .15s;}
+  .goal-edit-btn:hover{border-color:var(--accent);color:var(--accent);}
+  .goal-edit-row{display:flex;align-items:center;gap:8px;margin-top:8px;animation:fadeIn .2s ease;}
+  .goal-edit-row input{width:64px;background:var(--surface2);border:1px solid var(--accent);border-radius:6px;color:var(--text);font-size:1rem;padding:6px 10px;outline:none;text-align:center;-moz-appearance:textfield;}
+  .goal-edit-row input::-webkit-outer-spin-button,.goal-edit-row input::-webkit-inner-spin-button{-webkit-appearance:none;}
+  .goal-save-btn{background:var(--accent);border:none;border-radius:6px;color:#1a1000;font-family:'Bebas Neue',sans-serif;font-size:.95rem;letter-spacing:.06em;padding:6px 14px;cursor:pointer;}
+  .goal-cancel-btn{background:none;border:1px solid #444;border-radius:6px;color:var(--muted);font-family:'DM Sans',sans-serif;font-size:.8rem;padding:6px 10px;cursor:pointer;}
+  .stats-row{display:flex;gap:10px;margin-bottom:24px;width:100%;max-width:400px;}
+  .stat-box{flex:1;background:var(--surface);border-radius:12px;padding:12px 8px;text-align:center;border:1px solid #2a2a2a;}
+  .stat-num{font-family:'Bebas Neue',sans-serif;font-size:1.9rem;line-height:1;}
+  .stat-num.cleared{color:var(--cleared);}
+  .stat-num.blocked{color:var(--blocked);}
+  .stat-num.total{color:var(--accent);}
+  .stat-label{font-size:.65rem;color:var(--muted);text-transform:uppercase;letter-spacing:.08em;margin-top:3px;}
+  .tabs{display:flex;width:100%;max-width:400px;background:var(--surface);border-radius:10px;padding:4px;margin-bottom:20px;gap:4px;}
+  .tab{flex:1;padding:10px 4px;border:none;border-radius:7px;background:transparent;color:var(--muted);font-family:'Bebas Neue',sans-serif;font-size:.95rem;letter-spacing:.06em;cursor:pointer;transition:all .15s;}
+  .tab.active{background:var(--surface2);color:var(--accent);}
+  .tab-content{width:100%;max-width:400px;}
+  .tab-panel{display:none;}
+  .tab-panel.active{display:block;}
+  .wall-btn{background:var(--surface);border:2px solid #333;border-radius:16px;color:var(--text);font-family:'Bebas Neue',sans-serif;font-size:1.5rem;letter-spacing:.1em;padding:22px 48px;cursor:pointer;transition:all .15s;margin-bottom:20px;width:100%;}
+  .wall-btn:hover{border-color:var(--accent);color:var(--accent);}
+  .wall-btn:active{transform:scale(.98);}
+  .response-btns{display:flex;gap:12px;width:100%;margin-bottom:20px;animation:fadeIn .2s ease;}
+  @keyframes fadeIn{from{opacity:0;transform:translateY(8px);}to{opacity:1;transform:translateY(0);}}
+  .resp-btn{flex:1;border:none;border-radius:14px;font-family:'Bebas Neue',sans-serif;font-size:1.2rem;letter-spacing:.08em;padding:20px 12px;cursor:pointer;transition:all .15s;}
+  .resp-btn:active{transform:scale(.97);}
+  .btn-cleared{background:var(--cleared);color:#0a2e18;}
+  .btn-blocked{background:var(--blocked);color:#fff;}
+  .resp-btn:hover{filter:brightness(1.1);}
+  .manual-form{background:var(--surface);border-radius:14px;padding:20px;border:1px solid #2a2a2a;}
+  .manual-form label{display:block;font-size:.75rem;color:var(--muted);text-transform:uppercase;letter-spacing:.1em;margin-bottom:6px;margin-top:16px;}
+  .manual-form label:first-child{margin-top:0;}
+  .manual-form input[type=number]{width:100%;background:var(--surface2);border:1px solid #333;border-radius:8px;color:var(--text);font-family:'DM Sans',sans-serif;font-size:1.3rem;padding:12px 14px;outline:none;-moz-appearance:textfield;}
+  .manual-form input[type=number]::-webkit-outer-spin-button,.manual-form input[type=number]::-webkit-inner-spin-button{-webkit-appearance:none;}
+  .manual-form input:focus{border-color:var(--accent);}
+  .manual-note{font-size:.75rem;color:var(--muted);margin-top:12px;line-height:1.5;}
+  .submit-btn{width:100%;margin-top:16px;background:var(--accent);border:none;border-radius:10px;color:#1a1000;font-family:'Bebas Neue',sans-serif;font-size:1.2rem;letter-spacing:.08em;padding:16px;cursor:pointer;transition:all .15s;}
+  .submit-btn:hover{filter:brightness(1.1);}
+  .submit-btn:active{transform:scale(.98);}
+  .log-title{font-family:'Bebas Neue',sans-serif;font-size:1rem;letter-spacing:.1em;color:var(--muted);margin-bottom:10px;}
+  .log-list{display:flex;flex-direction:column;gap:6px;max-height:320px;overflow-y:auto;}
+  .log-item{display:flex;align-items:center;justify-content:space-between;background:var(--surface);border-radius:8px;padding:10px 14px;font-size:.82rem;border-left:3px solid transparent;}
+  .log-item.cleared{border-left-color:var(--cleared);}
+  .log-item.blocked{border-left-color:var(--blocked);}
+  .log-item.manual-c{border-left-color:var(--accent);}
+  .log-item.manual-b{border-left-color:#c0392b;}
+  .log-outcome{font-weight:600;font-size:.75rem;text-transform:uppercase;letter-spacing:.06em;}
+  .log-outcome.cleared{color:var(--cleared);}
+  .log-outcome.blocked{color:var(--blocked);}
+  .log-outcome.manual{color:var(--accent);}
+  .log-time{color:var(--muted);font-size:.75rem;}
+  .hidden{display:none!important;}
+  .flash{position:fixed;top:20px;left:50%;transform:translateX(-50%);padding:12px 28px;border-radius:30px;font-family:'Bebas Neue',sans-serif;font-size:1rem;letter-spacing:.1em;opacity:0;pointer-events:none;transition:opacity .2s;z-index:100;white-space:nowrap;}
+  .flash.show{opacity:1;}
+  .flash.cleared{background:var(--cleared);color:#0a2e18;}
+  .flash.blocked{background:var(--blocked);color:#fff;}
+  .flash.manual{background:var(--accent);color:#1a1000;}
+  .flash.error{background:#c0392b;color:#fff;}
+  .flash.success{background:var(--cleared);color:#0a2e18;}
+</style>
+</head>
+<body>
+
+<h1>Wall Tracker</h1>
+<p class="subtitle">Monthly Score</p>
+
+<div class="month-bar">
+  <span class="month-name" id="monthName"></span>
+  <span class="goal-status" id="goalStatus">No data yet</span>
+</div>
+
+<div class="score-section">
+  <div class="ring-wrap">
+    <svg width="170" height="170" viewBox="0 0 170 170">
+      <circle class="ring-bg" cx="85" cy="85" r="71"/>
+      <circle class="ring-fill" id="ringFill" cx="85" cy="85" r="71"
+        stroke-dasharray="446.1" stroke-dashoffset="446.1" stroke="#f39c12"/>
+    </svg>
+    <div class="ring-center">
+      <div class="ring-pct" id="pctDisplay">—</div>
+      <div class="ring-label">cleared</div>
+    </div>
+  </div>
+  <div class="goal-line">
+    Monthly goal: <span id="goalDisplay">75%</span>
+    <button class="goal-edit-btn" onclick="toggleGoalEdit()">Edit</button>
+  </div>
+  <div class="goal-edit-row hidden" id="goalEditRow">
+    <input type="number" id="goalInput" min="1" max="100" placeholder="75" inputmode="numeric">
+    <button class="goal-save-btn" onclick="saveGoal()">Save</button>
+    <button class="goal-cancel-btn" onclick="toggleGoalEdit()">Cancel</button>
+  </div>
+</div>
+
+<div class="stats-row">
+  <div class="stat-box"><div class="stat-num total" id="statTotal">0</div><div class="stat-label">Walls</div></div>
+  <div class="stat-box"><div class="stat-num cleared" id="statCleared">0</div><div class="stat-label">Cleared</div></div>
+  <div class="stat-box"><div class="stat-num blocked" id="statBlocked">0</div><div class="stat-label">Blocked</div></div>
+</div>
+
+<div class="tabs">
+  <button class="tab active" onclick="switchTab('live')">⚡ Live</button>
+  <button class="tab" onclick="switchTab('manual')">✏️ Manual</button>
+  <button class="tab" onclick="switchTab('history')">📋 Today</button>
+</div>
+
+<div class="tab-content">
+  <div class="tab-panel active" id="tab-live">
+    <button class="wall-btn" id="wallBtn" onclick="hitWall()">⚡ Wall Encountered</button>
+    <div class="response-btns hidden" id="responseBtns">
+      <button class="resp-btn btn-cleared" onclick="resolve('cleared')">✓ Wall Cleared</button>
+      <button class="resp-btn btn-blocked" onclick="resolve('blocked')">✗ Blocked</button>
+    </div>
+  </div>
+
+  <div class="tab-panel" id="tab-manual">
+    <div class="manual-form">
+      <label>Walls Encountered</label>
+      <input type="number" id="manualTotal" min="0" placeholder="0" inputmode="numeric">
+      <label>Walls Cleared</label>
+      <input type="number" id="manualCleared" min="0" placeholder="0" inputmode="numeric">
+      <p class="manual-note">Adds to any entries already logged today. Blocked = Encountered minus Cleared.</p>
+      <button class="submit-btn" onclick="submitManual()">Add to Today's Log</button>
+    </div>
+  </div>
+
+  <div class="tab-panel" id="tab-history">
+    <div class="log-title">Today's Entries</div>
+    <div class="log-list" id="logList"></div>
+  </div>
+</div>
+
+<div class="flash" id="flash"></div>
+
+<script>
+const CIRC=446.1;
+const DEFAULT_GOAL=75;
+
+function getMonthKey(){const d=new Date();return`wt_${d.getFullYear()}_${d.getMonth()}`;}
+function getGoalKey(){const d=new Date();return`wt_goal_${d.getFullYear()}_${d.getMonth()}`;}
+function getTodayStr(){const d=new Date();return`${d.getFullYear()}-${d.getMonth()}-${d.getDate()}`;}
+function loadData(){const r=localStorage.getItem(getMonthKey());return r?JSON.parse(r):[];}
+function saveData(e){localStorage.setItem(getMonthKey(),JSON.stringify(e));}
+function loadGoal(){const r=localStorage.getItem(getGoalKey());return r?parseInt(r):DEFAULT_GOAL;}
+function saveGoalVal(g){localStorage.setItem(getGoalKey(),g);}
+
+let entries=loadData();
+let goal=loadGoal();
+
+function toggleGoalEdit(){
+  const row=document.getElementById('goalEditRow');
+  const isHidden=row.classList.contains('hidden');
+  row.classList.toggle('hidden',!isHidden);
+  if(isHidden){
+    document.getElementById('goalInput').value=goal;
+    document.getElementById('goalInput').focus();
+  }
+}
+
+function saveGoal(){
+  const val=parseInt(document.getElementById('goalInput').value);
+  if(!val||val<1||val>100){showFlash('Enter 1–100','error');return;}
+  goal=val;
+  saveGoalVal(goal);
+  document.getElementById('goalEditRow').classList.add('hidden');
+  showFlash(`Goal set to ${goal}%`,'success');
+  render();
+}
+
+function switchTab(name){
+  const names=['live','manual','history'];
+  document.querySelectorAll('.tab').forEach((t,i)=>t.classList.toggle('active',names[i]===name));
+  document.querySelectorAll('.tab-panel').forEach(p=>p.classList.remove('active'));
+  document.getElementById('tab-'+name).classList.add('active');
+  if(name==='history')renderLog();
+}
+
+function hitWall(){
+  document.getElementById('wallBtn').classList.add('hidden');
+  document.getElementById('responseBtns').classList.remove('hidden');
+}
+
+function resolve(outcome){
+  entries.push({time:new Date().toISOString(),outcome,type:'live'});
+  saveData(entries);
+  document.getElementById('responseBtns').classList.add('hidden');
+  document.getElementById('wallBtn').classList.remove('hidden');
+  showFlash(outcome==='cleared'?'💪 WALL CLEARED':'Logged.',outcome);
+  render();
+}
+
+function submitManual(){
+  const tot=parseInt(document.getElementById('manualTotal').value)||0;
+  const clr=parseInt(document.getElementById('manualCleared').value)||0;
+  if(tot<=0){showFlash('Enter at least 1 wall','error');return;}
+  if(clr>tot){showFlash("Cleared can't exceed total",'error');return;}
+  const blk=tot-clr;
+  const now=new Date().toISOString();
+  for(let i=0;i<clr;i++) entries.push({time:now,outcome:'cleared',type:'manual'});
+  for(let i=0;i<blk;i++) entries.push({time:now,outcome:'blocked',type:'manual'});
+  saveData(entries);
+  document.getElementById('manualTotal').value='';
+  document.getElementById('manualCleared').value='';
+  showFlash(`Added: ${clr} cleared, ${blk} blocked`,'manual');
+  render();
+}
+
+function showFlash(msg,type){
+  const el=document.getElementById('flash');
+  el.textContent=msg;el.className=`flash show ${type}`;
+  setTimeout(()=>el.classList.remove('show'),1800);
+}
+
+function render(){
+  const total=entries.length;
+  const cleared=entries.filter(e=>e.outcome==='cleared').length;
+  const blocked=entries.filter(e=>e.outcome==='blocked').length;
+  const pct=total>0?Math.round((cleared/total)*100):null;
+
+  document.getElementById('statTotal').textContent=total;
+  document.getElementById('statCleared').textContent=cleared;
+  document.getElementById('statBlocked').textContent=blocked;
+  document.getElementById('goalDisplay').textContent=goal+'%';
+
+  const ring=document.getElementById('ringFill');
+  const pd=document.getElementById('pctDisplay');
+  if(pct===null){pd.textContent='—';ring.style.strokeDashoffset=CIRC;ring.style.stroke='#444';}
+  else{
+    pd.textContent=pct+'%';
+    ring.style.strokeDashoffset=CIRC-(pct/100)*CIRC;
+    ring.style.stroke=pct>=goal?'#2ecc71':pct>=goal*.8?'#f39c12':'#e74c3c';
+  }
+
+  const gs=document.getElementById('goalStatus');
+  if(pct===null){gs.textContent='No data yet';gs.className='goal-status';}
+  else if(pct>=goal){gs.textContent=`✓ On track (${pct}%)`;gs.className='goal-status on-track';}
+  else{gs.textContent=`${pct}% — goal: ${goal}%`;gs.className='goal-status off-track';}
+
+  const d=new Date();
+  document.getElementById('monthName').textContent=d.toLocaleString('default',{month:'long',year:'numeric'});
+}
+
+function renderLog(){
+  const ts=getTodayStr();
+  const today=entries.filter(e=>{const d=new Date(e.time);return`${d.getFullYear()}-${d.getMonth()}-${d.getDate()}`===ts;}).reverse();
+  const list=document.getElementById('logList');
+  if(!today.length){list.innerHTML='<div style="color:#555;font-size:.8rem;padding:8px 0;">Nothing logged today yet.</div>';return;}
+  list.innerHTML=today.map(e=>{
+    const t=new Date(e.time);
+    const ts=t.toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'});
+    const isM=e.type==='manual';
+    const cls=isM?(e.outcome==='cleared'?'manual-c':'manual-b'):e.outcome;
+    const oc=isM?'manual':e.outcome;
+    const lbl=e.outcome==='cleared'?`✓ Cleared${isM?' (manual)':''}`:(`✗ Blocked${isM?' (manual)':''}`);
+    return`<div class="log-item ${cls}"><span class="log-outcome ${oc}">${lbl}</span><span class="log-time">${ts}</span></div>`;
+  }).join('');
+}
+
+render();
+</script>
+</body>
+</html>
